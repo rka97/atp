@@ -23,7 +23,7 @@
 ;; MODE DEFINITION:
 
 (defgroup atp nil
-  "Auto thing at point"
+  "Auto thing at point."
   :group  'atp
   :tag    "atp"
   :prefix "atp-")
@@ -76,11 +76,17 @@ REGEXP is a regular expression."
 (defvar atp-thing-overlay nil
   "An overlay over current thing.")
 
+(defvar atp-thing-begin-pos nil
+  "Current thing begin position.")
+
+(defvar atp-thing-end-pos nil
+  "Current thing end position.")
+
 ;; FUNCTIONS FOR ACCESSING OVERLAY:
 (defun atp-thing-end-position ()
   "End of thing."
   (when atp-thing-overlay
-      (overlay-end atp-thing-overlay)))
+    (overlay-end atp-thing-overlay)))
 
 (defun atp-thing-beginning-postion ()
   "Beginnig of thing."
@@ -97,6 +103,8 @@ Returns t if overlay was drawn, nil if was deleted."
     nil)
   (if (not (and beg end))
       (setq atp-thing-overlay nil)
+    (setq atp-thing-begin-pos beg)
+    (setq atp-thing-end-pos end)
     (setq atp-thing-overlay (make-overlay beg end))
     (overlay-put atp-thing-overlay 'face 'atp-thing-active)
     t))
@@ -229,21 +237,19 @@ after each call to `atp-update-thing'.")
 
 ;; FUNCTIONS FOR THING PROCESSING
 (defun atp-apply (command &rest args)
-  "Apply COMMAND to highlighted thing or region.
+  "Apply COMMAND to highlighted thing or region. ;
 COMMAND is expected to have at least 2 first positional args: START and END.
 The rest of its arguments are passed into ARGS."
-  ;; If overlay is active, apply to overlay. If not, command-execute.
+  ;; If region is active, apply to region. If not, apply to overlay if active If not, command-execute.
   (interactive)
-  (cond ((and (atp-thing-beginning-postion)
-	      (atp-thing-end-position))
-	 (apply command
-		  (atp-thing-beginning-postion)
-		  (atp-thing-end-position)
-		  args))
-	((region-active-p)
+  (cond ((region-active-p)
 	 (apply command (region-beginning) (region-end) args))
-	(t
-	 (command-execute command))))
+	((and atp-thing-begin-pos atp-thing-end-pos)
+	 (apply command
+		atp-thing-begin-pos
+		atp-thing-end-pos
+		args))
+	(t (command-execute command))))
 
 (defun atp-copy ()
   "Copy highlighted thing."
@@ -270,8 +276,8 @@ The rest of its arguments are passed into ARGS."
 (defun atp-mark ()
   "Mark hightlighted thing as region."
   (interactive)
-  (let ((!start (atp-thing-beginning-postion))
-	(!end (atp-thing-end-position)))
+  (let ((!start atp-thing-begin-pos)
+	(!end atp-thing-end-pos))
     (when (and !start !end)
       (set-mark !start)
       (goto-char !end))))
@@ -284,8 +290,8 @@ The rest of its arguments are passed into ARGS."
         $p1 $p2)
     (if (use-region-p)
         (setq $p1 (region-beginning) $p2 (region-end))
-      (setq $p1 (atp-thing-beginning-postion)
-	    $p2 (atp-thing-end-position)))
+      (setq $p1 atp-thing-begin-pos
+	    $p2 atp-thing-end-pos))
     (when (not (eq last-command this-command))
       (put this-command 'state 0))
     (cond
